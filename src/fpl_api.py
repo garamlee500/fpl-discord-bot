@@ -425,7 +425,7 @@ class FplApi:
         team_player_list = []
         for player in self.player_list:
             if player["team"] == team_id:
-                team_player_list.append(self.view_player(player["id"]))
+                team_player_list.append(player)
 
         team_player_list = sorted(team_player_list, key=lambda d: float(d[sorting_key]), reverse=True)
         return team_player_list
