@@ -283,58 +283,15 @@ class FplApi:
             if player["id"] == player_id:
                 player_profile = player
 
-        player_profile_info_wanted = ["first_name",
-                                      "second_name",
-                                      "web_name",
-                                      "photo",
-                                      "chance_of_playing_this_round",
-                                      "chance_of_playing_next_round",
-                                      "cost_change_event",
-                                      "cost_change_start",
-                                      "now_cost",
-                                      "dreamteam_count",
-                                      "event_points",
-                                      "points_per_game",
-                                      "form",
-                                      "selected_by_percent",
-                                      "team",
-                                      "total_points",
-                                      "transfers_in_event",
-                                      "transfers_out_event",
-                                      "value_form",
-                                      "value_season",
-                                      "minutes",
-                                      "goals_scored",
-                                      "assists",
-                                      "clean_sheets",
-                                      "goals_conceded",
-                                      "own_goals",
-                                      "penalties_saved",
-                                      "penalties_missed",
-                                      "yellow_cards",
-                                      "red_cards",
-                                      "saves",
-                                      "bonus",
-                                      "bps",
-                                      "influence",
-                                      "creativity",
-                                      "threat",
-                                      "corners_and_indirect_freekicks_order",
-                                      "corners_and_indirect_freekicks_text",
-                                      "direct_freekicks_order",
-                                      "direct_freekicks_text",
-                                      "penalties_order",
-                                      "penalties_text",
-                                      "id",
-                                      "news"]
-
-        player_profile = extract_dictionary(player_profile, player_profile_info_wanted)
-
         first_gameweek = player_matches["history"][0]["round"]
         full_name = player_profile["first_name"] + " " + player_profile["second_name"]
+        player_position_num = player_profile["element_type"] -1
+        position = self.main_data["element_types"][player_position_num]["singular_name"]
 
         player_profile = player_profile | {'first_gameweek': first_gameweek,
-                                           'full_name': full_name}
+                                           'full_name': full_name,
+                                           'position': position}
+
         if matches:
             # Union the two dictionaries and return (PYTHON 3.9+)!!!
             return player_profile | player_matches
@@ -407,19 +364,7 @@ class FplApi:
         else:
             return {}
 
-        # Keys of info we want from team
-        team_info_wanted = ["name",
-                            "strength",
-                            "strength_overall_home",
-                            "strength_overall_away",
-                            "strength_attack_home",
-                            "strength_attack_away",
-                            "strength_defence_home",
-                            "strength_defence_away"]
-
-        # Dictionary Comprehension goes through team and finds info wanted
-        team_info = extract_dictionary(team_selected, team_info_wanted)
-        return team_info
+        return team_selected
 
     def view_teamname_list(self) -> list:
         """
@@ -432,18 +377,58 @@ class FplApi:
 
         return teamname_list
 
-    def view_team_logo(self, team_id: int) -> str:
+    def view_team_fpl_score(self, team: Union[int, str]) -> dict:
+        """
+        View the fpl score of a team, and other stats, calculated using the geometric mean between
+        the total fpl points from a team, and the total fpl points if all gameweeks had current form
+        :param team: Team to score
+        :return: Total form, Total points and fpl_score
+        """
+        player_list = self.view_team_players(team)
+        total_form = 0
+        total_points = 0
+        for player in player_list:
+            total_form += float(player["form"])
+            total_points += player["total_points"]
+
+        # The geometric mean between total points, and the total points if form was used
+        fpl_score = (total_points * total_form * self.gameweek)**0.5
+        return {
+            'total_form': total_form,
+            'total_points': total_points,
+            'fpl_score': fpl_score,
+            'team':team
+        }
+
+
+    def view_team_logo(self, team: Union[int, str]) -> str:
         """
         Find the link to a team's logo.
         :param team_id: Id of team (in teamlist, not api)
         :return: Url linking to team logo
         """
 
-        team = self.team_list[team_id]
-        team_code = str(team["code"])
+        team_info = self.view_team(team)
+        team_code = str(team_info["code"])
         team_logo_url = f"https://resources.premierleague.com/premierleague/badges/100/t{team_code}.png"
 
         return team_logo_url
+
+    def view_team_players(self, team: Union[int, str], sorting_key = 'form') -> list:
+        """
+        View all players from a team. Sorted from ascending form down (or any other stat)
+        :param team: Team to find players from
+        :param sorting_key: Stat to start by
+        :return:
+        """
+        team_id = self.view_team(team)["id"]
+        team_player_list = []
+        for player in self.player_list:
+            if player["team"] == team_id:
+                team_player_list.append(self.view_player(player["id"]))
+
+        team_player_list = sorted(team_player_list, key=lambda d: float(d[sorting_key]), reverse=True)
+        return team_player_list
 
     async def regular_updater(self, update_interval: int = 60):
         """

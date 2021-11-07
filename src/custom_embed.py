@@ -50,6 +50,7 @@ class PlayerProfileEmbed(FplEmbed):
 
         team_name = team["name"]
         self.add_field(name="Basic info", value=f"Team: {team_name}\n"
+                                                f"Position: {player_dict['position']}\n"
                                                 f"Cost: £{(player_dict['now_cost'] / 10):.1f} million", inline=False)
 
         if player_dict["news"] != "":
@@ -104,3 +105,30 @@ class PlayerProfileEmbed(FplEmbed):
                              f"{transfer_balance_emojifier(player_gameweek_info['transfers_balance'])}\n"
                              f"Selected by: {str(player_gameweek_info['selected'])}",
                        inline=True)
+
+class TeamProfileEmbed(FplEmbed):
+    def __init__(self, team_name: str):
+        super().__init__()
+
+        team_info_dict = fplApi.view_team(team_name)
+        team_logo_link = fplApi.view_team_logo(team_name)
+        team_players   = fplApi.view_team_players(team_name)
+        fpl_scores     = fplApi.view_team_fpl_score(team_name)
+
+        team_player_info = ''
+
+        for player in team_players[:5]:
+            team_player_info += '**' + player["web_name"] + '** ' + str(player["form"]) + " Form, " +\
+                                '£{:.1f}'.format(player["now_cost"]/10) + ' million\n'
+
+
+        self.title = team_info_dict['name'] + " Info"
+        self.description = '⭐' * team_info_dict["strength"]
+        self.set_thumbnail(url=team_logo_link)
+
+        self.add_field(name="FPL Stats",
+                       value=f"Total FPL points: {str(fpl_scores['total_points'])}\n"
+                             f"Current FPL form: {fpl_scores['total_form']:.1f}\n"
+                             f"FPL Strength: {fpl_scores['fpl_score']:.2f}")
+        self.add_field(name='Inform players:',
+                       value=team_player_info)

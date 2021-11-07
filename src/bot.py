@@ -12,7 +12,9 @@ from discord_slash.utils.manage_components import create_select, create_select_o
     wait_for_component, create_button
 
 from fpl_api import FplApi
-from custom_embed import PlayerProfileEmbed
+from custom_embed import PlayerProfileEmbed, TeamProfileEmbed
+
+import tabulate
 
 bot = commands.Bot(command_prefix="your mother", help_command=None)
 slash = SlashCommand(bot, sync_commands=True, sync_on_cog_reload=True)
@@ -50,8 +52,8 @@ async def on_ready():
     ]
 )
 async def team_info(ctx: SlashContext, team_name: str = team_list[0]):
-    team_info_dict = fplApi.view_team(team_name)
-    await ctx.send(str(team_info_dict))
+    await ctx.defer()
+    await ctx.send(embed=TeamProfileEmbed(team_name))
 
 
 @slash.slash(
@@ -161,6 +163,23 @@ async def player_info(ctx: SlashContext, player_last_name: str):
             await component_ctx.edit_origin(embed=PlayerProfileEmbed(current_player_id, gameweek),
                                             components=[actionrow, button_row])
 
+@slash.slash(
+    name="team_leaderboard",
+    description="Get a leaderboard of the best teams for fpl at the moment",
+)
+async def team_leaderboard(ctx: SlashContext):
+    await ctx.defer()
+    teams = []
+    for team in team_list:
+        teams.append(fplApi.view_team_fpl_score(team))
+
+    teams = sorted(teams, key=lambda d: float(d['fpl_score']), reverse=True)
+    teams_in_list = []
+    for i, team in enumerate(teams):
+        teams_in_list.append([team["team"], team['total_points'], team['total_form'], team['fpl_score']])
+
+    leaderboard = tabulate.tabulate(teams_in_list, headers=["Team", "Total points", "Form", "Fpl Score"], tablefmt='presto')
+    await ctx.send('```' + leaderboard + '```')
 
 if __name__ == "__main__":
     bot.run(DISCORD_KEY)
