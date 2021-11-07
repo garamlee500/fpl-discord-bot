@@ -5,7 +5,6 @@ from discord.ext import commands
 from discord_slash import SlashCommand, SlashContext, ButtonStyle, client, ComponentContext
 from discord_slash.utils.manage_commands import create_choice
 
-
 from datetime import datetime
 from difflib import get_close_matches
 
@@ -68,6 +67,21 @@ async def team_info(ctx: SlashContext, team_name: str = team_list[0]):
     ]
 )
 async def player_info(ctx: SlashContext, player_last_name: str):
+    def create_buttons(is_first_gameweek, is_last_gameweek):
+        return [
+            create_button(
+                style=ButtonStyle.blue,
+                label='⬅ ️Previous Gameweek',
+                custom_id="Previous" + random_id,
+                disabled=is_first_gameweek
+            ),
+            create_button(
+                style=ButtonStyle.blue,
+                label='Next Gameweek ➡',
+                custom_id="Next" + random_id,
+                disabled=is_last_gameweek
+            ),
+        ]
 
     gameweek = fplApi.gameweek
 
@@ -101,86 +115,50 @@ async def player_info(ctx: SlashContext, player_last_name: str):
 
     # Create select allowing user to grow through search results
     select = create_select(
-        [ create_select_option(label=player["web_name"],
-                              description=player["first_name"] + " " + player["second_name"],
-                              value = str(player_dicts.index(player)))
-         for player in player_dicts ],
+        [create_select_option(label=player["web_name"],
+                              description=player["full_name"],
+                              value=str(player_dicts.index(player)))
+         for player in player_dicts],
         placeholder="Choose player",
         min_values=1,
         max_values=1,
         custom_id="select" + random_id
     )
 
-    buttons = [
-        create_button(
-            style=ButtonStyle.blue,
-            label='⬅ ️Previous Gameweek',
-            custom_id="Previous" + random_id,
-            disabled=gameweek==current_player["first_gameweek"]
-        ),
-        create_button(
-            style=ButtonStyle.blue,
-            label='Next Gameweek ➡',
-            custom_id="Next" + random_id,
-            disabled=gameweek==fplApi.gameweek
-        ),
-    ]
+    buttons = create_buttons(gameweek == current_player["first_gameweek"],
+                             gameweek == fplApi.gameweek)
 
     selected_items_list_position = 0
 
-    actionrow =create_actionrow(select)
+    actionrow = create_actionrow(select)
     button_row = create_actionrow(*buttons)
     await ctx.send(embed=PlayerProfileEmbed(current_player_id, gameweek), components=[actionrow, button_row])
 
     while True:
-        component_ctx: ComponentContext = await wait_for_component(bot, components=[actionrow,button_row])
+        component_ctx: ComponentContext = await wait_for_component(bot, components=[actionrow, button_row])
 
         if component_ctx.custom_id == "select" + random_id:
             selected_items_list_position = component_ctx.selected_options[0]
             current_player_id = player_ids[int(selected_items_list_position)]
             current_player = player_dicts[int(selected_items_list_position)]
-            await component_ctx.edit_origin(embed= PlayerProfileEmbed(current_player_id, gameweek))
+            await component_ctx.edit_origin(embed=PlayerProfileEmbed(current_player_id, gameweek))
 
         elif component_ctx.custom_id == "Next" + random_id:
             gameweek += 1
 
-            buttons = [
-                create_button(
-                    style=ButtonStyle.blue,
-                    label='⬅ ️Previous Gameweek',
-                    custom_id="Previous" + random_id,
-                    disabled=gameweek == current_player["first_gameweek"]
-                ),
-                create_button(
-                    style=ButtonStyle.blue,
-                    label='Next Gameweek ➡',
-                    custom_id="Next" + random_id,
-                    disabled=gameweek == fplApi.gameweek
-                ),
-            ]
+            buttons = create_buttons(gameweek == current_player["first_gameweek"],
+                                     gameweek == fplApi.gameweek)
             button_row = create_actionrow(*buttons)
-            await component_ctx.edit_origin(embed= PlayerProfileEmbed(current_player_id, gameweek),
+            await component_ctx.edit_origin(embed=PlayerProfileEmbed(current_player_id, gameweek),
                                             components=[actionrow, button_row])
 
         elif component_ctx.custom_id == "Previous" + random_id:
             gameweek -= 1
 
-            buttons = [
-                create_button(
-                    style=ButtonStyle.blue,
-                    label='⬅ ️Previous Gameweek',
-                    custom_id="Previous" + random_id,
-                    disabled=gameweek == current_player["first_gameweek"]
-                ),
-                create_button(
-                    style=ButtonStyle.blue,
-                    label='Next Gameweek ➡',
-                    custom_id="Next" + random_id,
-                    disabled=gameweek == fplApi.gameweek
-                ),
-            ]
+            buttons = create_buttons(gameweek == current_player["first_gameweek"],
+                                     gameweek == fplApi.gameweek)
             button_row = create_actionrow(*buttons)
-            await component_ctx.edit_origin(embed= PlayerProfileEmbed(current_player_id, gameweek),
+            await component_ctx.edit_origin(embed=PlayerProfileEmbed(current_player_id, gameweek),
                                             components=[actionrow, button_row])
 
 

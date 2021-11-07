@@ -13,6 +13,8 @@ def get_player_image(image_link: str) -> str:
     :return: Full image link to player
     """
     return "https://resources.premierleague.com/premierleague/photos/players/110x140/p" + image_link
+
+
 def extract_dictionary(dictionary: dict, keys_to_extract: list) -> dict:
     """
     Uses dictionary comprehension to keep only certain keys from the dictionary
@@ -276,7 +278,6 @@ class FplApi:
 
         player_profile = {}
 
-
         player_matches = self.get_player_history(player_id)
         for player in self.player_list:
             if player["id"] == player_id:
@@ -330,16 +331,23 @@ class FplApi:
         player_profile = extract_dictionary(player_profile, player_profile_info_wanted)
 
         first_gameweek = player_matches["history"][0]["round"]
+        full_name = player_profile["first_name"] + " " + player_profile["second_name"]
 
-        player_profile = player_profile | {'first_gameweek': first_gameweek}
+        player_profile = player_profile | {'first_gameweek': first_gameweek,
+                                           'full_name': full_name}
         if matches:
             # Union the two dictionaries and return (PYTHON 3.9+)!!!
             return player_profile | player_matches
         else:
             return player_profile
 
-    def view_player_gameweek_ponits(self, player_id: int, gameweek: int = 0) -> dict:
-
+    def view_player_gameweek_points(self, player_id: int, gameweek: int = 0) -> dict:
+        """
+        View the points breakdown of a player on a certain gameweek
+        :param player_id: Id of player
+        :param gameweek: Gameweek to view player's point breakdown on
+        :return: Points breakdown
+        """
         if gameweek == 0:
             gameweek = self.gameweek
 
@@ -370,7 +378,6 @@ class FplApi:
         for match in player_matches:
             if match["round"] == gameweek:
                 return match
-
 
         return None
 
@@ -439,11 +446,11 @@ class FplApi:
         return team_logo_url
 
     async def regular_updater(self, update_interval: int = 60):
-        '''
+        """
         Refresh data every fixed interval, to keep data updated.
         Defaults to one minute.
         :param update_interval: Number of seconds to wait before updating
-        '''
+        """
         while True:
             await asyncio.sleep(update_interval)
             self.update_all()
