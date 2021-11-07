@@ -167,8 +167,17 @@ class FplApi:
         """
         # Go through all gameweeks
         for i in range(GAMEWEEK_COUNT):
-            # Keep going through gameweeks until one that isn't finished is found
-            if not self.main_data["events"][i]["finished"]:
+            # Keep going through gameweeks until the current one is found
+            if self.main_data["events"][i]["is_current"]:
+                # Return current gameweek
+                self.gameweek = i + 1
+                return self.gameweek
+
+        # Not sure how if there's no current gameweek? (I'm not sure how the api works yet so i'll leave this here)
+        # If there's no current use the previous one
+        for i in range(GAMEWEEK_COUNT):
+            # Keep going through gameweeks until the previous one is found
+            if self.main_data["events"][i]["is_previous"]:
                 # Return current gameweek
                 self.gameweek = i + 1
                 return self.gameweek
@@ -267,6 +276,7 @@ class FplApi:
 
         player_profile = {}
 
+
         player_matches = self.get_player_history(player_id)
         for player in self.player_list:
             if player["id"] == player_id:
@@ -319,11 +329,26 @@ class FplApi:
 
         player_profile = extract_dictionary(player_profile, player_profile_info_wanted)
 
+        first_gameweek = player_matches["history"][0]["round"]
+
+        player_profile = player_profile | {'first_gameweek': first_gameweek}
         if matches:
             # Union the two dictionaries and return (PYTHON 3.9+)!!!
             return player_profile | player_matches
         else:
             return player_profile
+
+    def view_player_gameweek_ponits(self, player_id: int, gameweek: int = 0) -> dict:
+
+        if gameweek == 0:
+            gameweek = self.gameweek
+
+        gameweek_data = self.get_gameweek_player_data(gameweek)
+
+        for player in gameweek_data["elements"]:
+            if player_id == player["id"]:
+                return player["explain"][0]["stats"]
+        return {}
 
     def view_player_on_gameweek(self, player_id: int, gameweek: int = 0):
         """
@@ -399,6 +424,19 @@ class FplApi:
             teamname_list.append(team["name"])
 
         return teamname_list
+
+    def view_team_logo(self, team_id: int) -> str:
+        """
+        Find the link to a team's logo.
+        :param team_id: Id of team (in teamlist, not api)
+        :return: Url linking to team logo
+        """
+
+        team = self.team_list[team_id]
+        team_code = str(team["code"])
+        team_logo_url = f"https://resources.premierleague.com/premierleague/badges/100/t{team_code}.png"
+
+        return team_logo_url
 
     async def regular_updater(self, update_interval: int = 60):
         '''
