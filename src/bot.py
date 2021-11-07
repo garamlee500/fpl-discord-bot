@@ -162,10 +162,11 @@ async def player_info(ctx: SlashContext, player_last_name: str):
             button_row = create_actionrow(*buttons)
             await component_ctx.edit_origin(embed=PlayerProfileEmbed(current_player_id, gameweek),
                                             components=[actionrow, button_row])
-
+'''
 @slash.slash(
     name="team_leaderboard",
     description="Get a leaderboard of the best teams for fpl at the moment",
+    
 )
 async def team_leaderboard(ctx: SlashContext):
     await ctx.defer()
@@ -180,6 +181,6 @@ async def team_leaderboard(ctx: SlashContext):
 
     leaderboard = tabulate.tabulate(teams_in_list, headers=["Team", "Total points", "Form", "Fpl Score"], tablefmt='presto')
     await ctx.send('```' + leaderboard + '```')
-
+'''
 if __name__ == "__main__":
     bot.run(DISCORD_KEY)
