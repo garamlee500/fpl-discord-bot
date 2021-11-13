@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import requests
 import json
 import asyncio
@@ -430,7 +432,7 @@ class FplApi:
         team_player_list = sorted(team_player_list, key=lambda d: float(d[sorting_key]), reverse=True)
         return team_player_list
 
-    async def regular_updater(self, update_interval: int = 60):
+    async def regular_updater(self, update_interval: int = 0):
         """
         Refresh data every fixed interval, to keep data updated.
         Defaults to one minute.
@@ -438,4 +440,9 @@ class FplApi:
         """
         while True:
             await asyncio.sleep(update_interval)
-            self.update_all()
+            try:
+                print('Updating!')
+                self.update_all()
+            except requests.exceptions.ConnectionError:
+                time_info = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                print(f"Connection Error! Skipping Upgrade! At {time_info}")

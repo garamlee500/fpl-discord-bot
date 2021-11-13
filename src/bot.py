@@ -35,7 +35,7 @@ async def on_ready():
     time_info = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
     print(f'We have logged in as {bot.user.name} on {time_info}')
 
-    await fplApi.regular_updater(60)
+    await fplApi.regular_updater()
 
 
 @slash.slash(
