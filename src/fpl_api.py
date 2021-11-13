@@ -257,6 +257,34 @@ class FplApi:
         self.team_list = self.main_data["teams"]
         return self.team_list
 
+    def view_fixtures_for_team(self, team: Union[str, int]) -> dict:
+        """
+        Get result and match fixtures for a certain team. You can use team name or id,
+        but note id is the list id, not fpl id.
+        :param team: Team name/id
+        :return: Dict containing results and fixutres
+        """
+        # Find team id
+        team_info = self.view_team(team)
+        team_id = team_info['id']
+
+        results = []
+        fixtures = []
+
+        # Go through all fixtures, check if the team plays in them
+        # And them add the them either to results or fixtures
+        for fixture in self.fixtures:
+            if team_id == fixture['team_h'] or team_id == fixture['team_a']:
+                if fixture['started']:
+                    results.append(fixture)
+                else:
+                    fixtures.append(fixture)
+
+        return {
+            'results': results,
+            'fixtures': fixtures
+        }
+
     def view_match(self, fixture_id: int) -> dict:
 
         for fixture in self.fixtures:
@@ -406,7 +434,7 @@ class FplApi:
     def view_team_logo(self, team: Union[int, str]) -> str:
         """
         Find the link to a team's logo.
-        :param team_id: Id of team (in teamlist, not api)
+        :param team: Team you are looking for
         :return: Url linking to team logo
         """
 
@@ -415,6 +443,18 @@ class FplApi:
         team_logo_url = f"https://resources.premierleague.com/premierleague/badges/100/t{team_code}.png"
 
         return team_logo_url
+
+    def view_team_shirt(self, team: [Union[int, str]]) -> str:
+        """
+        Find the link to a team's shirt
+        :param team: Team you are looking for
+        :return: Url linking to team shirt
+        """
+        team_info = self.view_team(team)
+        team_code = str(team_info["code"])
+        team_shirt_url = f"https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_{team_code}-220.webp"
+
+        return team_shirt_url
 
     def view_team_players(self, team: Union[int, str], sorting_key = 'form') -> list:
         """

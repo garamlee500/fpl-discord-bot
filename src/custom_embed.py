@@ -78,19 +78,12 @@ class PlayerProfileEmbed(FplEmbed):
             home_team = fplApi.view_team(player_gameweek_info["opponent_team"] - 1)
             away_team = {'name': team_name}
 
-        discipline_text = ''
-        if player_gameweek_info['yellow_cards'] > 0:
-            discipline_text = f"**{player_gameweek_info['yellow_cards']} yellow card given **"
-
-        if player_gameweek_info['red_cards'] > 0:
-            discipline_text += f"**Red card given**"
-
         gameweek_point_info = ''
 
         for point_info in player_gameweek_points:
             gameweek_point_info += str(point_info["value"]) + " " \
                                                               "" + point_info["identifier"].replace('_', ' ') + ': ' \
-                                                            '' + str(point_info["points"]) + " points\n"
+                                                              '' + str(point_info["points"]) + " points\n"
 
         self.add_field(name=f"Gameweek {str(gameweek)} performance:",
                        value=f"**{home_team['name']} {str(player_gameweek_info['team_h_score'])} - "
@@ -106,21 +99,21 @@ class PlayerProfileEmbed(FplEmbed):
                              f"Selected by: {str(player_gameweek_info['selected'])}",
                        inline=True)
 
+
 class TeamProfileEmbed(FplEmbed):
     def __init__(self, team_name: str):
         super().__init__()
 
         team_info_dict = fplApi.view_team(team_name)
         team_logo_link = fplApi.view_team_logo(team_name)
-        team_players   = fplApi.view_team_players(team_name)
-        fpl_scores     = fplApi.view_team_fpl_score(team_name)
+        team_players = fplApi.view_team_players(team_name)
+        fpl_scores = fplApi.view_team_fpl_score(team_name)
 
         team_player_info = ''
 
         for player in team_players[:5]:
-            team_player_info += '**' + player["web_name"] + '** ' + str(player["form"]) + " Form, " +\
-                                '£{:.1f}'.format(player["now_cost"]/10) + ' million\n'
-
+            team_player_info += '**' + player["web_name"] + '** ' + str(player["form"]) + " Form, " + \
+                                '£{:.1f}'.format(player["now_cost"] / 10) + ' million\n'
 
         self.title = team_info_dict['name'] + " Info"
         self.description = '⭐' * team_info_dict["strength"]
@@ -132,3 +125,28 @@ class TeamProfileEmbed(FplEmbed):
                              f"FPL Strength: {fpl_scores['fpl_score']:.2f}")
         self.add_field(name='Inform players:',
                        value=team_player_info)
+
+        matches = fplApi.view_fixtures_for_team(team_name)
+        last_5_results = matches['results'][-5:]
+        next_5_fixtures = matches['fixtures'][:5]
+
+        result_info = ''
+        for result in last_5_results:
+            home_team = fplApi.view_team(result['team_h'] - 1)
+            away_team = fplApi.view_team(result['team_a'] - 1)
+            score = '**' + home_team["name"] + '** ' + str(result['team_h_score']) + ' - ' + \
+                    str(result['team_h_score']) + ' **' + away_team["name"] + '** (GW ' + str(result['event']) + ')'
+            result_info += score + '\n'
+
+        fixture_info = ''
+        for fixture in next_5_fixtures:
+            home_team = fplApi.view_team(fixture['team_h'] - 1)
+            away_team = fplApi.view_team(fixture['team_a'] - 1)
+            fixture_info += '**' + home_team['name'] + '** vs **' + away_team['name'] +\
+                            '** (GW ' + str(fixture['event']) + ')\n'
+
+        self.add_field(name='Results:', value=result_info, inline=False)
+        self.add_field(name='Fixtures:', value=fixture_info)
+
+        team_shirt = fplApi.view_team_shirt(team_name)
+        self.set_image(url=team_shirt)
