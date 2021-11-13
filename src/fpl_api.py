@@ -432,7 +432,7 @@ class FplApi:
         team_player_list = sorted(team_player_list, key=lambda d: float(d[sorting_key]), reverse=True)
         return team_player_list
 
-    async def regular_updater(self, update_interval: int = 0):
+    async def regular_updater(self, update_interval: int = 60):
         """
         Refresh data every fixed interval, to keep data updated.
         Defaults to one minute.
