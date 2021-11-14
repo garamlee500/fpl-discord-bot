@@ -412,7 +412,7 @@ class FplApi:
 
         team_info = self.view_team(team)
         team_code = str(team_info["code"])
-        team_logo_url = f"https://resources.premierleague.com/premierleague/badges/100/t{team_code}.png"
+        team_logo_url = f"https://resources.premierleague.com/premierleague/badges/100/t{team_code}@x2.png"
 
         return team_logo_url
 

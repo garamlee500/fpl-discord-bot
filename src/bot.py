@@ -12,7 +12,7 @@ from discord_slash.utils.manage_components import create_select, create_select_o
     wait_for_component, create_button
 
 from fpl_api import FplApi
-from custom_embed import PlayerProfileEmbed, TeamProfileEmbed
+from custom_embed import PlayerProfileEmbed, TeamProfileEmbed, ComparisonEmbed
 
 import tabulate
 
@@ -181,6 +181,30 @@ async def team_leaderboard(ctx: SlashContext):
 
     leaderboard = tabulate.tabulate(teams_in_list, headers=["Team", "Total points", "Form", "Fpl Score"], tablefmt='presto')
     await ctx.send('```' + leaderboard + '```')
+
+@slash.slash(
+    name="compare",
+    description="Compare two teams",
+    options=[
+        {
+            "name": "home_team",
+            "description": "Name of home team",
+            "required": True,
+            "type": 3,
+            "choices": [create_choice(name=team, value=team) for team in team_list]
+        },
+        {
+            "name": "away_team",
+            "description": "Name of away team",
+            "required": True,
+            "type": 3,
+            "choices": [create_choice(name=team, value=team) for team in team_list]
+        }
+    ]
+)
+async def compare(ctx: SlashContext, home_team: str, away_team: str):
+    await ctx.send(embed=ComparisonEmbed(home_team, away_team))
+
 
 if __name__ == "__main__":
     bot.run(DISCORD_KEY)

@@ -132,3 +132,17 @@ class TeamProfileEmbed(FplEmbed):
                              f"FPL Strength: {fpl_scores['fpl_score']:.2f}")
         self.add_field(name='Inform players:',
                        value=team_player_info)
+
+class ComparisonEmbed(FplEmbed):
+    def __init__(self, home_team: str, away_team: str):
+        super().__init__()
+        home_team = fplApi.view_team(home_team)
+        away_team = fplApi.view_team(away_team)
+
+        home_attack = home_team['strength_attack_home']
+        home_defence = home_team['strength_defence_home']
+
+        away_attack = away_team['strength_attack_away']
+        away_defence = away_team['strength_defence_away']
+
+        self.title = home_team['name'] + ' vs ' + away_team['name']
