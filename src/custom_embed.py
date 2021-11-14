@@ -19,6 +19,21 @@ def transfer_balance_emojifier(transfer_balance: int) -> str:
     return emoji + " " + str(transfer_difference)
 
 
+
+def predict_goals(attack: int, defence: int) -> int:
+
+    """
+    Predict the number of goals based on attack and defence strength, using interpolation by desmos!
+    (might collect data in database later to more accurately calculate this
+    :param attack:
+    :param defence:
+    :return:
+    """
+    attack_advantage = attack - defence
+    goals = round(attack_advantage * 0.007874 + 1.25)
+
+    return goals if goals > 0 else 0
+
 # Default embed settings
 class FplEmbed(discord.Embed):
     def __init__(self):
@@ -160,8 +175,25 @@ class ComparisonEmbed(FplEmbed):
 
         home_attack = home_team['strength_attack_home']
         home_defence = home_team['strength_defence_home']
-
+        home_strength = home_team['strength']
         away_attack = away_team['strength_attack_away']
         away_defence = away_team['strength_defence_away']
+        away_strength = away_team['strength']
+
+        home_goals = predict_goals(home_attack, away_defence)
+        away_goals = predict_goals(away_attack, home_defence)
 
         self.title = home_team['name'] + ' vs ' + away_team['name']
+        self.add_field(name=home_team['name']+':',
+                       value='⭐' * home_strength + '\n' +\
+                             str(home_attack) + ' attack\n'+\
+                             str(home_defence) + ' defence')
+
+        self.add_field(name=away_team['name']+':',
+                       value='⭐' * away_strength + '\n' +\
+                             str(away_attack) + ' attack\n'+\
+                             str(away_defence) + ' defence')
+
+        self.add_field(name="Score Prediction:",
+                       value=f"{home_team['name']} {str(home_goals)} - {str(away_goals)} {away_team['name']}",
+                       inline=False)
