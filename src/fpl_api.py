@@ -444,7 +444,7 @@ class FplApi:
 
         return team_logo_url
 
-    def view_team_shirt(self, team: [Union[int, str]]) -> str:
+    def view_team_shirt(self, team: [Union[int, str]], is_goalie=False) -> str:
         """
         Find the link to a team's shirt
         :param team: Team you are looking for
@@ -452,7 +452,8 @@ class FplApi:
         """
         team_info = self.view_team(team)
         team_code = str(team_info["code"])
-        team_shirt_url = f"https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_{team_code}-220.webp"
+        modifier = '_1' if is_goalie else ''
+        team_shirt_url = f"https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_{team_code+modifier}-220.webp"
 
         return team_shirt_url
 
