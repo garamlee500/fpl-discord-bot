@@ -14,7 +14,7 @@ from discord_slash.utils.manage_components import create_select, create_select_o
     wait_for_component, create_button
 
 from fpl_api import FplApi
-from custom_embed import PlayerProfileEmbed, TeamProfileEmbed, ComparisonEmbed
+from custom_embed import PlayerProfileEmbed, TeamProfileEmbed, ComparisonEmbed, FplTeamEmbed
 
 import tabulate
 
@@ -247,7 +247,10 @@ async def generate_emojis(ctx: SlashContext, emoji_choice: str):
         for team in team_list:
             image = requests.get(fplApi.view_team_shirt(team)).content
             team = team.replace(' ', '_')
-            await ctx.guild.create_custom_emoji(name=team + "_shirt", image=image)
+            try:
+                await ctx.guild.create_custom_emoji(name=team + "_shirt", image=image)
+            except Exception as e:
+                print(e)
     elif emoji_choice == "Goalie Shirts":
         for team in team_list:
             image = requests.get(fplApi.view_team_shirt(team, is_goalie=True)).content
@@ -261,6 +264,61 @@ async def generate_emojis_error(ctx, error):
     if isinstance(error, commands.MissingPermissions):
         await ctx.send("Warning! You need the manage_emojis permission for this.", hidden=True)
 
+@slash.slash(
+    name="fantasy_team",
+    description="View fpl team of a certain id. Better Id searches will be introduced in future."
+                "For now, click on 'points' in fpl in a browser and copy the big number in the url.",
+    options=[{"name": "manager_id",
+              "description": "Id of fpl manager",
+              "required": True,
+              "type":4,
+              }]
+)
+async def fantasy_team(ctx: SlashContext, manager_id: int):
+    profile = fplApi.get_fpl_manager(manager_id)
+    def create_buttons(is_first_gameweek, is_last_gameweek):
+        return [
+            create_button(
+                style=ButtonStyle.blue,
+                label='⬅ ️Previous Gameweek',
+                custom_id="Previous" + random_id,
+                disabled=is_first_gameweek
+            ),
+            create_button(
+                style=ButtonStyle.blue,
+                label='Next Gameweek ➡',
+                custom_id="Next" + random_id,
+                disabled=is_last_gameweek
+            ),
+        ]
+
+    random_id = str(uuid.uuid1())
+
+    if 'id' not in profile:
+        await ctx.send("Warning, player not found. This can sometimes happen during fpl maintenance breaks.", hidden=True)
+        return
+    current_gameweek = fplApi.gameweek
+
+    buttons = create_buttons(current_gameweek==profile['started_event'], current_gameweek==fplApi.gameweek)
+    button_row = create_actionrow(*buttons)
+    await ctx.defer()
+    message = await ctx.send(embed=FplTeamEmbed(manager_id, current_gameweek), components=[button_row])
+
+    while True:
+        component_ctx: ComponentContext = await wait_for_component(bot, components=button_row)
+        if component_ctx.custom_id == "Next" + random_id:
+            current_gameweek+=1
+        elif component_ctx.custom_id == "Previous" + random_id:
+            current_gameweek-=1
+        await component_ctx.defer(edit_origin=True)
+
+        buttons = create_buttons(True, True)
+        button_row = create_actionrow(*buttons)
+        await component_ctx.edit_origin(components=[button_row])
+
+        buttons = create_buttons(current_gameweek == profile['started_event'], current_gameweek == fplApi.gameweek)
+        button_row = create_actionrow(*buttons)
+        await message.edit(embed=FplTeamEmbed(manager_id, current_gameweek), components=[button_row])
 
 if __name__ == "__main__":
     bot.run(DISCORD_KEY)

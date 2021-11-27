@@ -197,3 +197,96 @@ class ComparisonEmbed(FplEmbed):
         self.add_field(name="Score Prediction:",
                        value=f"{home_team['name']} {str(home_goals)} - {str(away_goals)} {away_team['name']}",
                        inline=False)
+
+class FplTeamEmbed(FplEmbed):
+    def __init__(self, manager_id: int, gameweek: int = fplApi.gameweek):
+        super().__init__()
+        manager = fplApi.get_fpl_manager(manager_id)
+
+        if 'id' not in manager:
+            self.title = "Manager not found!"
+            return
+
+        transfers = fplApi.get_fpl_transfers(manager_id)
+        team = fplApi.get_fpl_team(manager_id, gameweek)
+        history = fplApi.get_fpl_manager_history(manager_id)
+
+        self.title = manager["name"]
+        full_name = manager["player_first_name"] + ' ' + manager['player_last_name']
+        if manager['player_region_iso_code_short'] in ['WA', 'EN', 'S1']:
+            flag_name = {'WA': 'wales',
+                         'EN': 'england',
+                         'S1': 'scotland'}[manager['player_region_iso_code_short']]
+        else:
+            flag_name = 'flag_' + manager['player_region_iso_code_short'].lower()
+
+        first_gameweek = manager["started_event"]
+        self.description = full_name + ' :' + flag_name + ':' + '\n' \
+                           f'First Gameweek: {str(first_gameweek)}'
+
+        played_gameweeks = fplApi.gameweek - first_gameweek + 1
+        total_points = manager['summary_overall_points']
+        average_points = total_points/played_gameweeks
+
+        transfer_points = 0
+        sub_points = 0
+        for week in history['current']:
+            transfer_points += week['event_transfers_cost']
+            sub_points += week['points_on_bench']
+
+        self.add_field(name='Total Performance',
+                       value=f"Total Points: {str(total_points)}\n"
+                             f"Total Rank: {str(manager['summary_overall_rank'])}\n"
+                             f"Average Points Per Gameweek: {average_points:.2f}\n"
+                             f"Total Transfer Points: {str(transfer_points)}\n"
+                             f"Total Bench Points: {str(sub_points)}")
+
+
+        favourite_team = manager['favourite_team']
+        self.set_thumbnail(url=fplApi.view_team_logo(favourite_team-1))
+
+
+        for week in history['current']:
+            if week['event'] == gameweek:
+                gameweek_details = week
+
+        self.add_field(name=f'Gameweek {str(gameweek)} Performance',
+                       value=f"Rank: {str(gameweek_details['rank'])}\n"
+                             f"Total Points: {str(gameweek_details['points'])}\n"
+                             f"Team value: £{(gameweek_details['value'] - gameweek_details['bank'])/10:.1f} million\n"
+                             f"Bank balance: £{(gameweek_details['bank']/10):.1f} million\n")
+
+        player_info = '**Main Team**\n'
+        for i, player in enumerate(team["picks"]):
+            if i==11:
+                player_info += '**Subs**\n'
+
+            player_performance = fplApi.view_player_on_gameweek(player['element'], gameweek)
+            player_details = fplApi.view_player(player['element'], no_api=True)
+            points = player_performance['total_points']
+            player_info += f"*{player_details['full_name']}*: {str(points*player['multiplier'])} points"
+            player_info += ' (c)\n' if player['is_captain'] else (' (vc)\n' if player['is_vice_captain'] else '\n')
+
+
+        self.add_field(name=f'Gameweek {str(gameweek)} Team', value=player_info, inline=False)
+
+
+        transfer_list = []
+        for transfer in transfers:
+            if transfer['event'] == gameweek:
+                transfer_list.append(transfer)
+
+        if transfer_list:
+            transfer_info = ''
+            for tranfer in transfer_list:
+                player_in = fplApi.view_player(tranfer['element_in'], no_api=True)['full_name']
+                player_out = fplApi.view_player(tranfer['element_out'], no_api=True)['full_name']
+                transfer_info += f'IN: **{player_in}** (£{tranfer["element_in_cost"]/10:.1f} mil),' \
+                                 f' OUT: **{player_out}** (£{tranfer["element_out_cost"]/10:.1f} mil)\n'
+            self.add_field(name=f"Gameweek {str(gameweek)} Transfers",
+                           value=transfer_info)
+
+            if len(self.fields[-1].value) > 1024:
+                self.remove_field(-1)
+                self.add_field(name=f"Transfers Unavailable",
+                               value='Transfers not shown due to being over character limit')

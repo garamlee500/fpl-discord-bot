@@ -32,7 +32,6 @@ class FplApi:
     FplApi aims to creates a simple way to interact with fpl's api endpoints
 
     Note:
-        api/entry/{team-id}/history/ endpoint not implemented,
         as with all authentication requiring endpoints.
     """
 
@@ -91,6 +90,20 @@ class FplApi:
         """
         fpl_manager_data = self.access_fpl_api(f"/entry/{str(manager_id)}/")
         return fpl_manager_data
+
+    def get_fpl_manager_history(self, manager_id: int) -> dict:
+        """
+        Get basic data about each gameweeks' performance on fpl manager
+        Data in here includes:
+            Ranks
+            Balance
+            Transfers
+            Point breakdown
+        :param manager_id:
+        :return:
+        """
+        fpl_manager_history = self.access_fpl_api(f"/entry/{manager_id}/history/")
+        return fpl_manager_history
 
     def get_fpl_team(self, manager_id: int, gameweek: int = 0) -> dict:
         """
@@ -293,7 +306,7 @@ class FplApi:
 
         return {}
 
-    def view_player(self, player_id: int, matches: bool = False) -> dict:
+    def view_player(self, player_id: int, matches: bool = False, no_api=False) -> dict:
         """
         View a players' stats
         This data includes:
@@ -308,19 +321,24 @@ class FplApi:
 
         player_profile = {}
 
-        player_matches = self.get_player_history(player_id)
+
         for player in self.player_list:
             if player["id"] == player_id:
                 player_profile = player
 
-        first_gameweek = player_matches["history"][0]["round"]
         full_name = player_profile["first_name"] + " " + player_profile["second_name"]
         player_position_num = player_profile["element_type"] -1
         position = self.main_data["element_types"][player_position_num]["singular_name"]
 
-        player_profile = player_profile | {'first_gameweek': first_gameweek,
-                                           'full_name': full_name,
-                                           'position': position}
+        if not no_api:
+            player_matches = self.get_player_history(player_id)
+            first_gameweek = player_matches["history"][0]["round"]
+            player_profile = player_profile | {'first_gameweek': first_gameweek,
+                                               'full_name': full_name,
+                                               'position': position}
+        else:
+            player_profile = player_profile | {'full_name': full_name,
+                                               'position': position}
 
         if matches:
             # Union the two dictionaries and return (PYTHON 3.9+)!!!
