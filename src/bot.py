@@ -266,8 +266,7 @@ async def generate_emojis_error(ctx, error):
 
 @slash.slash(
     name="fantasy_team",
-    description="View fpl team of a certain id. Better Id searches will be introduced in future."
-                "For now, click on 'points' in fpl in a browser and copy the big number in the url.",
+    description="View fpl team of a certain id. Click on points in fpl in a browser and copy big number in url.",
     options=[{"name": "manager_id",
               "description": "Id of fpl manager",
               "required": True,
