@@ -261,6 +261,9 @@ class FplTeamEmbed(FplEmbed):
             if i==11:
                 player_info += '**Subs**\n'
 
+            if player['multiplier']==0:
+                player['multiplier'] = 1
+
             player_performance = fplApi.view_player_on_gameweek(player['element'], gameweek)
             player_details = fplApi.view_player(player['element'], no_api=True)
             points = player_performance['total_points']
