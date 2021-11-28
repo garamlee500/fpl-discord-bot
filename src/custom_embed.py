@@ -293,3 +293,5 @@ class FplTeamEmbed(FplEmbed):
                 self.remove_field(-1)
                 self.add_field(name=f"Transfers Unavailable",
                                value='Transfers not shown due to being over character limit')
+
+        self.url = f"https://fantasy.premierleague.com/entry/{str(manager_id)}/event/{str(gameweek)}"
