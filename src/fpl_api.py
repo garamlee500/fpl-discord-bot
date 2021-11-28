@@ -433,7 +433,7 @@ class FplApi:
         """
         player_list = self.view_team_players(team)
         matches = self.view_fixtures_for_team(team)
-        if
+        matches_played = len(matches['results'])
 
         total_form = 0
         total_points = 0
@@ -441,8 +441,10 @@ class FplApi:
             total_form += float(player["form"])
             total_points += player["total_points"]
 
+        scaled_points = (total_points/matches_played) * self.gameweek
+
         # The geometric mean between total points, and the total points if form was used
-        fpl_score = (total_points * total_form * self.gameweek)**0.5
+        fpl_score = (scaled_points * total_form * self.gameweek)**0.5
         return {
             'total_form': total_form,
             'total_points': total_points,
