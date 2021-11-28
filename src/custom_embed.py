@@ -6,6 +6,18 @@ from fpl_api import get_player_image, FplApi
 fplApi = FplApi()
 
 
+def underscore(string):
+    return string.replace(' ', '_')
+
+
+import json
+
+emojis = {}
+emoji_files = ['GOALIE_EMOJIS.json', 'LOGO_EMOJIS.json', 'SHIRT_EMOJIS.json']
+for emoji_file in emoji_files:
+    emojis |= json.load(fp=open(emoji_file, 'r'))
+
+
 def transfer_balance_emojifier(transfer_balance: int) -> str:
     if transfer_balance > 0:
         emoji = "⬆"
@@ -19,9 +31,7 @@ def transfer_balance_emojifier(transfer_balance: int) -> str:
     return emoji + " " + str(transfer_difference)
 
 
-
 def predict_goals(attack: int, defence: int) -> int:
-
     """
     Predict the number of goals based on attack and defence strength, using interpolation by desmos!
     (might collect data in database later to more accurately calculate this
@@ -33,6 +43,7 @@ def predict_goals(attack: int, defence: int) -> int:
     goals = round(attack_advantage * 0.007874 + 1.25)
 
     return goals if goals > 0 else 0
+
 
 # Default embed settings
 class FplEmbed(discord.Embed):
@@ -98,7 +109,8 @@ class PlayerProfileEmbed(FplEmbed):
         for point_info in player_gameweek_points:
             gameweek_point_info += str(point_info["value"]) + " " \
                                                               "" + point_info["identifier"].replace('_', ' ') + ': ' \
-                                                              '' + str(point_info["points"]) + " points\n"
+                                                                                                                '' + str(
+                point_info["points"]) + " points\n"
 
         self.add_field(name=f"Gameweek {str(gameweek)} performance:",
                        value=f"**{home_team['name']} {str(player_gameweek_info['team_h_score'])} - "
@@ -123,24 +135,27 @@ class TeamProfileEmbed(FplEmbed):
         team_logo_link = fplApi.view_team_logo(team_name)
         team_players = fplApi.view_team_players(team_name)
         fpl_scores = fplApi.view_team_fpl_score(team_name)
+        shirt_emoji = emojis[underscore(team_name) + '_shirt']
+        goalie_emoji = emojis[underscore(team_name) + '_goalie']
 
         team_player_info = ''
 
         for player in team_players[:5]:
-            team_player_info += '**' + player["web_name"] + '** ' + str(player["form"]) + " Form, " + \
-                                '£{:.1f}'.format(player["now_cost"] / 10) + ' million\n'
+            position = fplApi.main_data['element_types'][player['element_type']-1]['singular_name_short']
+            team_player_info += '(' + position + ') ' + '**' + player["web_name"] + '** ' + \
+                                str(player["form"]) + " Form, "+'£{:.1f}'.format(player["now_cost"] / 10) + ' million\n'
 
-        self.title = team_info_dict['name'] + " Info"
-        self.description = '⭐' * team_info_dict["strength"]
+        self.title = team_info_dict['name'] + " Info "
+
+        self.description = '⭐' * team_info_dict["strength"] +'\n'
         self.set_thumbnail(url=team_logo_link)
 
         self.add_field(name="FPL Stats",
                        value=f"Total FPL points: {str(fpl_scores['total_points'])}\n"
                              f"Current FPL form: {fpl_scores['total_form']:.1f}\n"
-                             f"FPL Strength: {fpl_scores['fpl_score']:.2f}")
+                             f"FPL Strength: {fpl_scores['fpl_score']:.2f}\n")
         self.add_field(name='Inform players:',
                        value=team_player_info)
-
 
         matches = fplApi.view_fixtures_for_team(team_name)
         last_5_results = matches['results'][-5:]
@@ -149,23 +164,29 @@ class TeamProfileEmbed(FplEmbed):
         result_info = ''
         for result in last_5_results:
             home_team = fplApi.view_team(result['team_h'] - 1)
+            home_emoji = emojis[underscore(home_team['name'])]
             away_team = fplApi.view_team(result['team_a'] - 1)
-            score = '**' + home_team["name"] + '** ' + str(result['team_h_score']) + ' - ' + \
-                    str(result['team_h_score']) + ' **' + away_team["name"] + '** (GW ' + str(result['event']) + ')'
+            away_emoji = emojis[underscore(away_team['name'])]
+            score = home_emoji + ' **' + home_team["name"] + '** ' + str(result['team_h_score']) + ' - ' + \
+                    str(result['team_h_score']) + ' **' + away_team["name"] + ' ' + away_emoji +\
+                    '** (GW ' + str(result['event']) + ')'
             result_info += score + '\n'
 
         fixture_info = ''
         for fixture in next_5_fixtures:
             home_team = fplApi.view_team(fixture['team_h'] - 1)
+            home_emoji = emojis[underscore(home_team['name'])]
             away_team = fplApi.view_team(fixture['team_a'] - 1)
-            fixture_info += '**' + home_team['name'] + '** vs **' + away_team['name'] +\
-                            '** (GW ' + str(fixture['event']) + ')\n'
+            away_emoji = emojis[underscore(away_team['name'])]
+            fixture_info += home_emoji + ' **' + home_team['name'] + '** vs **' + away_team['name'] + \
+                            ' ' + away_emoji + '** (GW ' + str(fixture['event']) + ')\n'
 
         self.add_field(name='Results:', value=result_info, inline=False)
         self.add_field(name='Fixtures:', value=fixture_info)
 
         team_shirt = fplApi.view_team_shirt(team_name)
-        self.set_image(url=team_shirt)
+        # self.set_image(url=team_shirt)
+
 
 class ComparisonEmbed(FplEmbed):
     def __init__(self, home_team: str, away_team: str):
@@ -183,20 +204,23 @@ class ComparisonEmbed(FplEmbed):
         home_goals = predict_goals(home_attack, away_defence)
         away_goals = predict_goals(away_attack, home_defence)
 
-        self.title = home_team['name'] + ' vs ' + away_team['name']
-        self.add_field(name=home_team['name']+':',
-                       value='⭐' * home_strength + '\n' +\
-                             str(home_attack) + ' attack\n'+\
-                             str(home_defence) + ' defence')
+        self.title = emojis[underscore(home_team['name'])] + ' ' + home_team['name'] + ' vs ' + \
+                     away_team['name'] + ' ' + emojis[underscore(away_team['name'])]
+        self.add_field(name=home_team['name'] + ':',
+                       value='⭐' * home_strength + '\n' + \
+                             emojis[underscore(home_team['name']) + '_shirt'] + ' ' + str(home_attack) + ' attack\n' + \
+                             emojis[underscore(home_team['name']) + '_goalie'] + ' ' + str(home_defence) + ' defence')
 
-        self.add_field(name=away_team['name']+':',
-                       value='⭐' * away_strength + '\n' +\
-                             str(away_attack) + ' attack\n'+\
-                             str(away_defence) + ' defence')
+        self.add_field(name=away_team['name'] + ':',
+                       value='⭐' * away_strength + '\n' + \
+                             str(away_attack) + ' attack' + ' ' + emojis[underscore(away_team['name']) + '_shirt'] +
+                             '\n' + str(away_defence) + ' defence' + ' ' +
+                             emojis[underscore(away_team['name']) + '_goalie'])
 
         self.add_field(name="Score Prediction:",
                        value=f"{home_team['name']} {str(home_goals)} - {str(away_goals)} {away_team['name']}",
                        inline=False)
+
 
 class FplTeamEmbed(FplEmbed):
     def __init__(self, manager_id: int, gameweek: int = fplApi.gameweek):
@@ -222,11 +246,11 @@ class FplTeamEmbed(FplEmbed):
 
         first_gameweek = manager["started_event"]
         self.description = full_name + ' :' + flag_name + ':' + '\n' \
-                           f'First Gameweek: {str(first_gameweek)}'
+                                                                f'First Gameweek: {str(first_gameweek)}'
 
         played_gameweeks = fplApi.gameweek - first_gameweek + 1
         total_points = manager['summary_overall_points']
-        average_points = total_points/played_gameweeks
+        average_points = total_points / played_gameweeks
 
         transfer_points = 0
         sub_points = 0
@@ -241,10 +265,8 @@ class FplTeamEmbed(FplEmbed):
                              f"Total Transfer Points: {str(transfer_points)}\n"
                              f"Total Bench Points: {str(sub_points)}")
 
-
         favourite_team = manager['favourite_team']
-        self.set_thumbnail(url=fplApi.view_team_logo(favourite_team-1))
-
+        self.set_thumbnail(url=fplApi.view_team_logo(favourite_team - 1))
 
         for week in history['current']:
             if week['event'] == gameweek:
@@ -253,26 +275,38 @@ class FplTeamEmbed(FplEmbed):
         self.add_field(name=f'Gameweek {str(gameweek)} Performance',
                        value=f"Rank: {str(gameweek_details['rank'])}\n"
                              f"Total Points: {str(gameweek_details['points'])}\n"
-                             f"Team value: £{(gameweek_details['value'] - gameweek_details['bank'])/10:.1f} million\n"
-                             f"Bank balance: £{(gameweek_details['bank']/10):.1f} million\n")
+                             f"Team value: £{(gameweek_details['value'] - gameweek_details['bank']) / 10:.1f} million\n"
+                             f"Bank balance: £{(gameweek_details['bank'] / 10):.1f} million\n")
 
-        player_info = '**Main Team**\n'
+        team_info = ''
+        sub_info = ''
         for i, player in enumerate(team["picks"]):
-            if i==11:
-                player_info += '**Subs**\n'
-
-            if player['multiplier']==0:
+            if player['multiplier'] == 0:
                 player['multiplier'] = 1
-
             player_performance = fplApi.view_player_on_gameweek(player['element'], gameweek)
             player_details = fplApi.view_player(player['element'], no_api=True)
+
+            player_team = fplApi.view_team(player_details['team']-1)
+
+            if player_details['position_short'] == 'GKP':
+                emoji = emojis[underscore(player_team['name']) + '_goalie']
+            else:
+                emoji = emojis[underscore(player_team['name']) + '_shirt']
+
+
             points = player_performance['total_points']
-            player_info += f"*{player_details['full_name']}*: {str(points*player['multiplier'])} points"
-            player_info += ' (c)\n' if player['is_captain'] else (' (vc)\n' if player['is_vice_captain'] else '\n')
 
+            info = f"{emoji} **({player_details['position_short']})** *{player_details['full_name']}*:" \
+                           f" {str(points * player['multiplier'])} points"
+            info += ' (c)\n' if player['is_captain'] else (' (vc)\n' if player['is_vice_captain'] else '\n')
 
-        self.add_field(name=f'Gameweek {str(gameweek)} Team', value=player_info, inline=False)
+            if i>=11:
+                sub_info += info
+            else:
+                team_info += info
 
+        self.add_field(name=f'Gameweek {str(gameweek)} Team', value=team_info, inline=False)
+        self.add_field(name=f'Gameweek {str(gameweek)} Subs', value=sub_info, inline=False)
 
         transfer_list = []
         for transfer in transfers:
@@ -284,8 +318,8 @@ class FplTeamEmbed(FplEmbed):
             for tranfer in transfer_list:
                 player_in = fplApi.view_player(tranfer['element_in'], no_api=True)['full_name']
                 player_out = fplApi.view_player(tranfer['element_out'], no_api=True)['full_name']
-                transfer_info += f'IN: **{player_in}** (£{tranfer["element_in_cost"]/10:.1f} mil),' \
-                                 f' OUT: **{player_out}** (£{tranfer["element_out_cost"]/10:.1f} mil)\n'
+                transfer_info += f'IN: **{player_in}** (£{tranfer["element_in_cost"] / 10:.1f} mil),' \
+                                 f' OUT: **{player_out}** (£{tranfer["element_out_cost"] / 10:.1f} mil)\n'
             self.add_field(name=f"Gameweek {str(gameweek)} Transfers",
                            value=transfer_info)
 

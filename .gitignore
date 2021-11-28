@@ -132,3 +132,4 @@ dmypy.json
 /src/discordKey.txt
 /notes.txt
 /attack_defence_goals.ods
+/src/test.py

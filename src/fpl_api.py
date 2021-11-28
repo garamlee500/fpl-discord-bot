@@ -329,16 +329,15 @@ class FplApi:
         full_name = player_profile["first_name"] + " " + player_profile["second_name"]
         player_position_num = player_profile["element_type"] -1
         position = self.main_data["element_types"][player_position_num]["singular_name"]
+        position_short = self.main_data["element_types"][player_position_num]["singular_name_short"]
 
         if not no_api:
             player_matches = self.get_player_history(player_id)
             first_gameweek = player_matches["history"][0]["round"]
-            player_profile = player_profile | {'first_gameweek': first_gameweek,
-                                               'full_name': full_name,
-                                               'position': position}
-        else:
-            player_profile = player_profile | {'full_name': full_name,
-                                               'position': position}
+            player_profile = player_profile | {'first_gameweek': first_gameweek}
+        player_profile = player_profile | {'full_name': full_name,
+                                           'position': position,
+                                           'position_short': position_short}
 
         if matches:
             # Union the two dictionaries and return (PYTHON 3.9+)!!!
@@ -433,6 +432,9 @@ class FplApi:
         :return: Total form, Total points and fpl_score
         """
         player_list = self.view_team_players(team)
+        matches = self.view_fixtures_for_team(team)
+        if
+
         total_form = 0
         total_points = 0
         for player in player_list:
