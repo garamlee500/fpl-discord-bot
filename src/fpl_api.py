@@ -14,7 +14,7 @@ def get_player_image(image_link: str) -> str:
     :param image_link: Image link found in json
     :return: Full image link to player
     """
-    return "https://resources.premierleague.com/premierleague/photos/players/110x140/p" + image_link
+    return "https://resources.premierleague.com/premierleague/photos/players/110x140/p" + image_link[:-4] + ".png"
 
 
 def extract_dictionary(dictionary: dict, keys_to_extract: list) -> dict:
