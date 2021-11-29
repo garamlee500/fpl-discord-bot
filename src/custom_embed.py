@@ -148,7 +148,12 @@ class TeamProfileEmbed(FplEmbed):
 
         for player in team_players[:5]:
             position = fplApi.main_data['element_types'][player['element_type']-1]['singular_name_short']
-            team_player_info += '(' + position + ') ' + '**' + player["web_name"] + '** ' + \
+            try:
+                emoji = emojis[str(player['id'])]
+            except KeyError:
+                emoji = shirt_emoji
+
+            team_player_info += emoji + ' (' + position + ') ' + '**' + player["web_name"] + '** ' + \
                                 str(player["form"]) + " Form, "+'£{:.1f}'.format(player["now_cost"] / 10) + ' million\n'
 
         self.title = team_info_dict['name'] + " Info "
@@ -294,13 +299,15 @@ class FplTeamEmbed(FplEmbed):
 
             player_team = fplApi.view_team(player_details['team']-1)
 
-            if player_details['position_short'] == 'GKP':
-                emoji = emojis[underscore(player_team['name']) + '_goalie']
-            else:
-                emoji = emojis[underscore(player_team['name']) + '_shirt']
+            try:
+                emoji = emojis[str(player_details['id'])]
+            except KeyError:
+                emoji = emojis[underscore(player_team['name'])+'_shirt']
 
-
-            points = player_performance['total_points']
+            try:
+                points = player_performance['total_points']
+            except KeyError:
+                points = '-'
 
             info = f"{emoji} **({player_details['position_short']})** *{player_details['full_name']}*:" \
                            f" {str(points * player['multiplier'])} points"

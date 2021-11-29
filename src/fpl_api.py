@@ -384,7 +384,7 @@ class FplApi:
             if match["round"] == gameweek:
                 return match
 
-        return None
+        return {}
 
     def view_team(self, team: Union[int, str]) -> dict:
         """
