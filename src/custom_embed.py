@@ -13,7 +13,7 @@ def underscore(string):
 import json
 
 emojis = {}
-emoji_files = ['GOALIE_EMOJIS.json', 'LOGO_EMOJIS.json', 'SHIRT_EMOJIS.json']
+emoji_files = ['GOALIE_EMOJIS.json', 'LOGO_EMOJIS.json', 'SHIRT_EMOJIS.json', 'PLAYER_EMOJIS.json']
 for emoji_file in emoji_files:
     emojis |= json.load(fp=open(emoji_file, 'r'))
 
@@ -61,8 +61,14 @@ class PlayerProfileEmbed(FplEmbed):
     def __init__(self, player_id: int, gameweek: int):
         super().__init__()
         player_dict = fplApi.view_player(player_id)
+
         player_gameweek_info = fplApi.view_player_on_gameweek(player_id, gameweek)
         player_gameweek_points = fplApi.view_player_gameweek_points(player_id, gameweek)
+
+        while not player_gameweek_info:
+            gameweek -= 1
+            player_gameweek_info = fplApi.view_player_on_gameweek(player_id, gameweek)
+            player_gameweek_points = fplApi.view_player_gameweek_points(player_id, gameweek)
 
         team = fplApi.view_team(player_dict["team"] - 1)
 

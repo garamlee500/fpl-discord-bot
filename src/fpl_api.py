@@ -359,7 +359,8 @@ class FplApi:
 
         for player in gameweek_data["elements"]:
             if player_id == player["id"]:
-                return player["explain"][0]["stats"]
+                if player["explain"]:
+                    return player["explain"][0]["stats"]
         return {}
 
     def view_player_on_gameweek(self, player_id: int, gameweek: int = 0):
