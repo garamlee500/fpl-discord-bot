@@ -1,10 +1,8 @@
 import discord
 import random
 
-from fpl_api import get_player_image, FplApi
-
-fplApi = FplApi()
-
+from fpl_api import get_player_image
+from bot import fplApi
 
 def underscore(string):
     return string.replace(' ', '_')
