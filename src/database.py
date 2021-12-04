@@ -8,12 +8,18 @@ class FplDatabase:
             fpl_id integer NOT NULL
             )
             '''
+        sql_to_create_gambling_accounts_table = '''CREATE TABLE IF NOT EXISTS gamblingAccounts (
+            discord_id integer PRIMARY KEY,
+            fpl_coins integer NOT NULL
+        )
+        '''
         try:
             # create connection
             self.conn = sqlite3.connect('database.db')
 
             c = self.conn.cursor()
             c.execute(sql_to_create_account_table)
+            c.execute(sql_to_create_gambling_accounts_table)
 
         except Error as e:
             print(e)
@@ -40,3 +46,23 @@ class FplDatabase:
         except:
             fpl_id = None
         return fpl_id
+
+    def create_gambling_account(self, discord_id, starting_cash:int = 100):
+        sql_to_create_gambling_account = '''INSERT INTO gamblingAccounts VALUES (?,?)'''
+        new_account = (discord_id, starting_cash)
+
+        cur = self.conn.cursor()
+
+        cur.execute(sql_to_create_gambling_account, new_account)
+
+    def find_account(self, discord_id) -> int:
+        sql_to_find_account = 'SELECT * FROM gamblingAccounts WHERE discord_id = ?'
+
+        cur = self.conn.cursor()
+
+        cur.execute(sql_to_find_account, (discord_id,))
+        try:
+            account = cur.fetchall()[0]
+        except:
+            account = None
+        return account
