@@ -133,3 +133,5 @@ dmypy.json
 /notes.txt
 /attack_defence_goals.ods
 /src/test.py
+/src/database.db
+/src/data.json

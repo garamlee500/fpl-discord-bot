@@ -14,10 +14,11 @@ from discord_slash.utils.manage_components import create_select, create_select_o
     wait_for_component, create_button
 
 from fpl_api import FplApi
+from database import FplDatabase
 
 import tabulate
 
-
+fplDatabase = FplDatabase()
 fplApi = FplApi()
 
 if __name__ == '__main__':
@@ -272,11 +273,17 @@ if __name__ == '__main__':
         description="View fpl team of a certain id. Click on points in fpl in a browser and copy big number in url.",
         options=[{"name": "manager_id",
                   "description": "Id of fpl manager",
-                  "required": True,
+                  "required": False,
                   "type":4,
                   }]
     )
-    async def fantasy_team(ctx: SlashContext, manager_id: int):
+    async def fantasy_team(ctx: SlashContext, manager_id: int = 0):
+
+        if not manager_id:
+            manager_id = fplDatabase.find_fpl_id(discord_id=ctx.author.id)
+            if not manager_id:
+                await ctx.send("No id sent or stored in database!")
+                return
         profile = fplApi.get_fpl_manager(manager_id)
         def create_buttons(is_first_gameweek, is_last_gameweek):
             return [
@@ -321,5 +328,18 @@ if __name__ == '__main__':
             buttons = create_buttons(current_gameweek == profile['started_event'], current_gameweek == fplApi.gameweek)
             button_row = create_actionrow(*buttons)
             await message.edit(embed=FplTeamEmbed(manager_id, current_gameweek), components=[button_row])
+
+    @slash.slash(
+        name="set_fpl_id",
+        description="Set fpl account. In browser, press 'Points' and copy number in url.",
+        options=[{"name": "fpl_id",
+                  "description": "Id of fpl manager",
+                  "required": True,
+                  "type": 4,
+                  }]
+    )
+    async def set_fpl_id(ctx: SlashContext, fpl_id: int):
+        fplDatabase.set_fpl_id(discord_id=ctx.author.id, fpl_id=fpl_id)
+        await ctx.send("Id Set Correctly! Try /fantasy_team !")
 
     bot.run(DISCORD_KEY)
