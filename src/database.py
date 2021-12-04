@@ -36,7 +36,7 @@ class FplDatabase:
 
         cur.execute(sql_to_find_fpl_id, (discord_id,))
         try:
-            fpl_id = cur.fetchall()[0]
+            fpl_id = cur.fetchall()[0][1]
         except:
             fpl_id = None
         return fpl_id
