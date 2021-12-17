@@ -92,9 +92,8 @@ class PlayerProfileEmbed(FplEmbed):
         player_gameweek_points = fplApi.view_player_gameweek_points(player_id, gameweek)
 
         while not player_gameweek_info:
-            gameweek -= 1
-            player_gameweek_info = fplApi.view_player_on_gameweek(player_id, gameweek)
-            player_gameweek_points = fplApi.view_player_gameweek_points(player_id, gameweek)
+            self.__init__(player_id, gameweek-1)
+            return
 
         team = fplApi.view_team(player_dict["team"] - 1)
 
