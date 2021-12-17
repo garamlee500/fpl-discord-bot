@@ -298,6 +298,22 @@ class FplApi:
             'fixtures': fixtures
         }
 
+    def view_fixtures_on_gameweek(self, gameweek: int = 0, only_not_started: bool = False) -> list:
+        """
+        Get all fixtures on certain gameweek
+        :param gameweek: Gameweek to get fixtures from
+        :param only_not_started: Whether to only get matches that haven't started, or all matches
+        :return: List of matches
+        """
+        fixtures = []
+        if gameweek == 0:
+            gameweek = self.gameweek
+        for fixture in self.fixtures:
+            if fixture['event'] == gameweek and not (fixture['started'] and only_not_started):
+                fixtures.append(fixture)
+
+        return fixtures
+
     def view_match(self, fixture_id: int) -> dict:
 
         for fixture in self.fixtures:
@@ -507,6 +523,15 @@ class FplApi:
             try:
                 print('Updating!')
                 self.update_all()
+
+                from bot import fplDatabase
+                from bet_processor import is_bet_correct
+                bets = fplDatabase.find_all_unfinished_bets()
+                for bet in bets:
+                    is_correct = is_bet_correct(bet_condition=bet[4], bet_type=bet[5])
+                    if not is_correct is None:
+                        fplDatabase.mark_bet_finished(bet[0], is_correct)
+
             except requests.exceptions.ConnectionError:
                 time_info = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                 print(f"Connection Error! Skipping Upgrade! At {time_info}")

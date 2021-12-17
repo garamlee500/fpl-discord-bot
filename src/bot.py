@@ -22,7 +22,9 @@ fplDatabase = FplDatabase()
 fplApi = FplApi()
 
 if __name__ == '__main__':
-    from custom_embed import PlayerProfileEmbed, TeamProfileEmbed, ComparisonEmbed, FplTeamEmbed
+    from custom_embed import PlayerProfileEmbed, TeamProfileEmbed, ComparisonEmbed, FplTeamEmbed, GamblingDashboard, \
+    MatchScorePredictor
+
     bot = commands.Bot(command_prefix="your mother", help_command=None)
     slash = SlashCommand(bot, sync_commands=True, sync_on_cog_reload=True)
 
@@ -342,4 +344,42 @@ if __name__ == '__main__':
         fplDatabase.set_fpl_id(discord_id=ctx.author.id, fpl_id=fpl_id)
         await ctx.send("Id Set Correctly! Try /fantasy_team !")
 
+    @slash.slash(
+        name="gambling_dashboard",
+        description="Launch dashboard where you can gamble!"
+    )
+    async def gambling_dashboard(ctx: SlashContext):
+        random_id = str(uuid.uuid1())
+        select = create_select(
+            [create_select_option(label="Match Score Predictor",
+                                  description="Try your hand at guessing match scores!",
+                                  value="match_score")],
+            placeholder="Choose Gambling Game!",
+            min_values=1,
+            max_values=1,
+            custom_id="select" + random_id
+        )
+        select_action_row = create_actionrow(select)
+        components = [select_action_row]
+
+        await ctx.send(embed=GamblingDashboard(ctx.author),
+                       components=components.copy())
+
+
+        component_ctx: ComponentContext = await wait_for_component(bot, components=components.copy())
+        while True:
+            if component_ctx.author == ctx.author:
+                if component_ctx.component_id == "select" + random_id:
+                    if component_ctx.selected_options[0] == 'match_score':
+                        await component_ctx.defer(edit_origin=True)
+                        component_ctx = await (MatchScorePredictor(ctx.author).launch(ctx, component_ctx,
+                                                                                bot, components=components.copy()))
+
+                elif component_ctx.component_id.startswith('home'):
+                    await component_ctx.origin_message.delete()
+                    await ctx.send(embed=GamblingDashboard(ctx.author),
+                           components=components.copy())
+            else:
+                await component_ctx.send("Warning, this is not your dashboard! Use /gambling_dashboard to make your own!", hidden=True)
+                component_ctx: ComponentContext = await wait_for_component(bot, components=components.copy())
     bot.run(DISCORD_KEY)
