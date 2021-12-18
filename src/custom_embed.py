@@ -204,7 +204,7 @@ class TeamProfileEmbed(FplEmbed):
             away_team = fplApi.view_team(result['team_a'] - 1)
             away_emoji = emojis[underscore(away_team['name'])]
             score = home_emoji + ' **' + home_team["name"] + '** ' + str(result['team_h_score']) + ' - ' + \
-                    str(result['team_h_score']) + ' **' + away_team["name"] + ' ' + away_emoji +\
+                    str(result['team_a_score']) + ' **' + away_team["name"] + ' ' + away_emoji +\
                     '** (GW ' + str(result['event']) + ')'
             result_info += score + '\n'
 
