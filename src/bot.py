@@ -22,8 +22,7 @@ fplDatabase = FplDatabase()
 fplApi = FplApi()
 
 if __name__ == '__main__':
-    from custom_embed import PlayerProfileEmbed, TeamProfileEmbed, ComparisonEmbed, FplTeamEmbed, GamblingDashboard, \
-    MatchScorePredictor
+    from custom_embed import PlayerProfileEmbed, TeamProfileEmbed, ComparisonEmbed, FplTeamEmbed, GamblingDashboard
 
     bot = commands.Bot(command_prefix="your mother", help_command=None)
     slash = SlashCommand(bot, sync_commands=True, sync_on_cog_reload=True)
@@ -359,7 +358,11 @@ if __name__ == '__main__':
             max_values=1,
             custom_id="select" + random_id
         )
-        select_action_row = create_actionrow(select)
+        dashboard = GamblingDashboard(user=ctx.author)
+        await dashboard.launch(ctx, bot)
+
+
+        '''select_action_row = create_actionrow(select)
         components = [select_action_row]
 
         await ctx.send(embed=GamblingDashboard(ctx.author),
@@ -381,5 +384,7 @@ if __name__ == '__main__':
                            components=components.copy())
             else:
                 await component_ctx.send("Warning, this is not your dashboard! Use /gambling_dashboard to make your own!", hidden=True)
-                component_ctx: ComponentContext = await wait_for_component(bot, components=components.copy())
+                component_ctx: ComponentContext = await wait_for_component(bot, components=components.copy())'''
+
+
     bot.run(DISCORD_KEY)

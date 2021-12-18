@@ -368,23 +368,205 @@ class FplTeamEmbed(FplEmbed):
 
         self.url = f"https://fantasy.premierleague.com/entry/{str(manager_id)}/event/{str(gameweek)}"
 
-class GamblingDashboard(FplEmbed):
+class GamblingDashboard():
     def __init__(self, user: discord.user):
-        super().__init__()
-        image_url = get_profile_pic(user)
+        self.user = user
 
         coins = fplDatabase.find_account_money(user.id)
         self.coins = coins
-        self.set_thumbnail(url=image_url)
-        self.title = f"{user.name}'s Gambling dashboard!"
 
-        self.add_field(
+        image_url = get_profile_pic(user)
+        self.home_embed = FplEmbed()
+        self.home_embed.set_thumbnail(url=image_url)
+        self.home_embed.title = f"{user.name}'s Gambling dashboard!"
+        self.home_embed.add_field(
             name='Profile',
             value=f"**Name:** {user.name}#{user.discriminator}\n"
                   f"**Coins**: {coins}"
         )
 
+    def match_choice_selectors(self):
+        self.odds = odd_finder('match_score')
+        if self.odds == 0:
+            self.odds = 5
 
+        current_embed = self.home_embed.copy()
+
+        current_embed.add_field(name='Match Score Predictor',
+                       value="Try your hand at guessing the results of matches!"
+                             f" All correct bets are currently timesed by {self.odds}",
+                       inline=False)
+
+        fixtures = []
+        i=0
+        while not fixtures:
+            fixtures = fplApi.view_fixtures_on_gameweek(gameweek=fplApi.gameweek+i, only_not_started=True)
+            i+=1
+        matches = []
+        select_options = []
+
+        match_difficulty_comments = {
+            4: ['Should be a walk in the park for {}.',
+                'Expect Goals, Goals and Goals for {}.',
+                "{} won't need half their team.",
+                'Easy as pie for {}.'],
+            3: ['Not really a challenge for {} - expect goals',
+                'Only one likely winner in this one.',
+                '{} could win this on an off day.',
+                "Could be aday for {} to rest some players",
+                "{} really the only one winning this.",
+                "{}'s goalkeeper will have a nice day"],
+            2: ['{} is going to win this',
+                "A surprise loss for {} is quite unlikely",
+                "Would be close if {} didn't arrive.",
+                "{} is probably winning this",
+                "We could see a couple of {} goals!",
+                "{} will win this most days"],
+            1: ['{} is likely to win, but could go either way',
+                "{} will get 3 points with usual form",
+                '{} will have to beware a surprise loss',
+                "{} will just get the win",
+                "Quality slightly in the favor of {}",
+                "Mabye a draw, but {} should win this.",
+                "A match which {} should edge",
+                "{} on a good day should just win this"],
+            0: ['Two even teams, setting the stage for an exciting battle',
+                'A draw is not unlikely - either team could win',
+                "Two similar teams both looking for a win",
+                "{} will hope to use home advantage in an even match",
+                "Two teams probably heading towards a draw",
+                "A match going down to the wire",
+                "A drawish match."]
+        }
+
+        for i, match in enumerate(fixtures):
+            home_team = fplApi.view_team(match['team_h'] - 1)['name']
+            away_team = fplApi.view_team(match['team_a'] - 1)['name']
+
+            home_team_advantage = match['team_a_difficulty'] - match['team_h_difficulty']
+
+            if home_team_advantage >= 0:
+                winning_team = home_team
+            else:
+                winning_team = away_team
+
+            match_description = random.choice(match_difficulty_comments[abs(home_team_advantage)])
+            match_description = match_description.format(winning_team)
+
+            matches.append((home_team, away_team))
+
+            select_options.append(create_select_option(label=f"Bet on {home_team} vs {away_team}",
+                                                       description=match_description,
+                                                       emoji={'name': underscore(winning_team),
+                                                              'id': get_emoji_id(underscore(winning_team))},
+                                                       value=str(i)))
+
+        match_select = create_select(select_options,
+                                    placeholder='Choose the match to bet on!',
+                                    min_values=1,
+                                    max_values=1,
+                                    custom_id='match_select')
+
+
+        self.match_select_action_row = create_actionrow(match_select)
+        self.match_select_embed = current_embed
+
+        self.fixtures = fixtures
+
+    def generate_match_score_pickers(self, match):
+
+        home_team = fplApi.view_team(match['team_h'] - 1)['name']
+        away_team = fplApi.view_team(match['team_a'] - 1)['name']
+
+        set_home_score_select = create_select(
+            [
+                create_select_option(label=str(i), value=str(i)) for i in range(0, 11)
+            ],
+            custom_id='home_team_score',
+            min_values=1,
+            max_values=1,
+            placeholder=f"Predict {home_team}'s score!"
+        )
+
+        set_away_score_select = create_select(
+            [
+                create_select_option(label=str(i), value=str(i)) for i in range(0, 11)
+            ],
+            custom_id='away_team_score',
+            min_values=1,
+            max_values=1,
+            placeholder=f"Predict {away_team}'s score!"
+        )
+
+        coins_to_bet_select = create_select(
+            [
+                create_select_option(label=str(i), value=str(i)) for i in range(1, min(26, self.coins + 1))
+            ],
+            custom_id='money_to_bet',
+            min_values=1,
+            max_values=1,
+            placeholder=f"Select amount to bet"
+        )
+
+        buttons = [create_button(
+            style=ButtonStyle.green,
+            label='Submit bet!',
+            custom_id='submit_bet'
+        ),
+            create_button(
+                style=ButtonStyle.red,
+                label='Go back home!',
+                custom_id='home'
+            )
+        ]
+
+        return [
+            create_actionrow(set_home_score_select),
+            create_actionrow(set_away_score_select),
+            create_actionrow(coins_to_bet_select),
+            create_actionrow(*buttons)
+        ]
+
+    async def launch(self, ctx: SlashContext, bot: discord.client):
+        self.embed = self.home_embed.copy()
+
+        self.game_selector = create_actionrow(create_select(
+            [create_select_option(label="Match Score Predictor",
+                                  description="Try your hand at guessing match scores!",
+                                  value="match_score")],
+            placeholder="Choose Gambling Game!",
+            min_values=1,
+            max_values=1,
+            custom_id="game_selector"
+        ))
+
+        self.components = [self.game_selector]
+
+        await ctx.send(embed=self.embed,
+                       components=[self.game_selector])
+
+        while True:
+            component_ctx: ComponentContext = await wait_for_component(bot, components=self.components)
+            if component_ctx.author == self.user:
+                if component_ctx.custom_id == 'game_selector':
+                    if component_ctx.selected_options[0] == "match_score":
+                        self.match_choice_selectors()
+                        await component_ctx.origin_message.delete()
+                        await component_ctx.send(embed=self.match_select_embed,
+                                       components=[self.game_selector, self.match_select_action_row])
+
+                    elif component_ctx.selected_options[0] == "match_select":
+                        match = self.fixtures[int(component_ctx.selected_options[0])]
+                        match_score_predictor_components = self.generate_match_score_pickers(match)
+                        await component_ctx.origin_message.delete()
+                        await component_ctx.send(embed=self.match_select_embed,
+                                                 components=match_score_predictor_components)
+            else:
+                await component_ctx.send(
+                    "Warning, this is not your dashboard! Use /gambling_dashboard to make your own!",
+                    hidden=True)
+
+'''
 class MatchScorePredictor(GamblingDashboard):
     def __init__(self, user: discord.user):
 
@@ -541,4 +723,4 @@ class MatchScorePredictor(GamblingDashboard):
                     components.append(create_actionrow(*buttons))
                     await component_ctx.edit_origin(embed=self, components=components)
             else:
-                return component_ctx
+                return component_ctx'''
