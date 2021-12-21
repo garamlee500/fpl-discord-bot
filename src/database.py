@@ -130,6 +130,8 @@ class FplDatabase:
         cur.execute(sql_to_update, bet)
         self.conn.commit()
 
+        self.add_account_money(discord_id, -coins_bet)
+
     def mark_bet_finished(self, bet_id, was_correct):
         was_correct = int(was_correct)
         sql_to_update = '''UPDATE bets

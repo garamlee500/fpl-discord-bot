@@ -2,8 +2,9 @@ import uuid
 
 import discord
 import random
+from copy import deepcopy
 
-from discord_components import ButtonStyle
+from discord_slash.model import ButtonStyle
 from discord_slash import SlashContext, ComponentContext
 from discord_slash.utils.manage_components import create_select_option, create_select, create_actionrow, \
     wait_for_component, create_button
@@ -368,33 +369,39 @@ class FplTeamEmbed(FplEmbed):
 
         self.url = f"https://fantasy.premierleague.com/entry/{str(manager_id)}/event/{str(gameweek)}"
 
-class GamblingDashboard():
+class GamblingDashboard:
     def __init__(self, user: discord.user):
         self.user = user
+        self.refresh_data()
 
-        coins = fplDatabase.find_account_money(user.id)
+
+    def refresh_data(self):
+
+        coins = fplDatabase.find_account_money(self.user.id)
         self.coins = coins
 
-        image_url = get_profile_pic(user)
+        image_url = get_profile_pic(self.user)
         self.home_embed = FplEmbed()
         self.home_embed.set_thumbnail(url=image_url)
-        self.home_embed.title = f"{user.name}'s Gambling dashboard!"
+        self.home_embed.title = f"{self.user.name}'s Gambling dashboard!"
         self.home_embed.add_field(
             name='Profile',
-            value=f"**Name:** {user.name}#{user.discriminator}\n"
+            value=f"**Name:** {self.user.name}#{self.user.discriminator}\n"
                   f"**Coins**: {coins}"
         )
+
+
 
     def match_choice_selectors(self):
         self.odds = odd_finder('match_score')
         if self.odds == 0:
             self.odds = 5
 
-        current_embed = self.home_embed.copy()
+        current_embed = deepcopy(self.home_embed)
 
         current_embed.add_field(name='Match Score Predictor',
                        value="Try your hand at guessing the results of matches!"
-                             f" All correct bets are currently timesed by {self.odds}",
+                             f" All correct bets are currently timesed by {self.odds}.",
                        inline=False)
 
         fixtures = []
@@ -480,8 +487,10 @@ class GamblingDashboard():
 
         set_home_score_select = create_select(
             [
-                create_select_option(label=str(i), value=str(i)) for i in range(0, 11)
-            ],
+                create_select_option(label=str(i), value=str(i)) for i in range(0, 10)
+            ]
+            +
+            [create_select_option(label='10+', value='10')],
             custom_id='home_team_score',
             min_values=1,
             max_values=1,
@@ -490,8 +499,10 @@ class GamblingDashboard():
 
         set_away_score_select = create_select(
             [
-                create_select_option(label=str(i), value=str(i)) for i in range(0, 11)
-            ],
+                create_select_option(label=str(i), value=str(i)) for i in range(0, 10)
+            ]
+            +
+            [create_select_option(label='10+', value='10')],
             custom_id='away_team_score',
             min_values=1,
             max_values=1,
@@ -527,8 +538,20 @@ class GamblingDashboard():
             create_actionrow(*buttons)
         ]
 
+    def create_prediction_summary_field(self, match):
+        home_team = fplApi.view_team(match['team_h'] - 1)['name']
+        away_team = fplApi.view_team(match['team_a'] - 1)['name']
+
+        current_embed = deepcopy(self.match_select_embed)
+        current_embed.add_field(
+            name='Current Prediction:',
+            value=f"**{home_team} {self.home_team_score} - {self.away_team_score} {away_team}\n"
+                  f"{self.money_bet} coins bet**"
+        )
+        return current_embed
+
     async def launch(self, ctx: SlashContext, bot: discord.client):
-        self.embed = self.home_embed.copy()
+        self.embed = deepcopy(self.home_embed)
 
         self.game_selector = create_actionrow(create_select(
             [create_select_option(label="Match Score Predictor",
@@ -545,22 +568,85 @@ class GamblingDashboard():
         await ctx.send(embed=self.embed,
                        components=[self.game_selector])
 
-        while True:
-            component_ctx: ComponentContext = await wait_for_component(bot, components=self.components)
-            if component_ctx.author == self.user:
-                if component_ctx.custom_id == 'game_selector':
-                    if component_ctx.selected_options[0] == "match_score":
-                        self.match_choice_selectors()
-                        await component_ctx.origin_message.delete()
-                        await component_ctx.send(embed=self.match_select_embed,
-                                       components=[self.game_selector, self.match_select_action_row])
+        current_components = self.components
 
-                    elif component_ctx.selected_options[0] == "match_select":
+        self.home_team_score = 0
+        self.away_team_score = 0
+        self.money_bet = 1
+        while True:
+            component_ctx: ComponentContext = await wait_for_component(bot, components=current_components)
+            self.refresh_data()
+            if component_ctx.author == self.user:
+                match component_ctx.custom_id:
+                    case 'game_selector':
+                        if component_ctx.selected_options[0] == "match_score":
+                            self.match_choice_selectors()
+                            await component_ctx.send(embed=self.match_select_embed,
+                                           components=[self.game_selector, self.match_select_action_row])
+                            current_components = [self.game_selector, self.match_select_action_row]
+                            await component_ctx.origin_message.delete()
+
+                    case "match_select":
                         match = self.fixtures[int(component_ctx.selected_options[0])]
-                        match_score_predictor_components = self.generate_match_score_pickers(match)
-                        await component_ctx.origin_message.delete()
+                        match_score_predictor_components = [self.match_select_action_row] +\
+                                                           self.generate_match_score_pickers(match)
                         await component_ctx.send(embed=self.match_select_embed,
                                                  components=match_score_predictor_components)
+                        current_components = match_score_predictor_components
+                        await component_ctx.origin_message.delete()
+
+
+                    case 'home':
+                        await component_ctx.send(embed=self.home_embed,
+                                                 components=[self.game_selector])
+                        current_components = [self.game_selector]
+                        await component_ctx.origin_message.delete()
+
+                    case 'home_team_score':
+                        self.home_team_score = component_ctx.selected_options[0]
+                        current_components = [self.match_select_action_row] +\
+                                              self.generate_match_score_pickers(match)
+                        await component_ctx.send(embed=self.create_prediction_summary_field(match),
+                                                 components= current_components)
+                        await component_ctx.origin_message.delete()
+
+                    case 'away_team_score':
+                        self.away_team_score = component_ctx.selected_options[0]
+                        current_components = [self.match_select_action_row] + \
+                                             self.generate_match_score_pickers(match)
+                        await component_ctx.send(embed=self.create_prediction_summary_field(match),
+                                                 components=current_components)
+                        await component_ctx.origin_message.delete()
+
+                    case 'money_to_bet':
+                        self.money_bet = int(component_ctx.selected_options[0])
+                        current_components = [self.match_select_action_row] +\
+                                              self.generate_match_score_pickers(match)
+                        await component_ctx.send(embed=self.create_prediction_summary_field(match),
+                                     components=current_components)
+                        await component_ctx.origin_message.delete()
+
+                    case 'submit_bet':
+                        self.refresh_data()
+                        money_to_bet = min(self.money_bet, self.coins)
+                        fplDatabase.create_bet(
+                            self.user.id,
+                            money_to_bet,
+                            money_to_bet * self.odds,
+                            f'{match["id"]},{self.home_team_score},{self.away_team_score}',
+                            'match_score'
+                        )
+
+                        current_components = [create_actionrow(create_button(
+                                                            style=ButtonStyle.red,
+                                                            label='Go back home!',
+                                                            custom_id='home'
+                                                            ))]
+                        await component_ctx.send("Bet succesfully made!",
+                                                 components=current_components)
+
+                        await component_ctx.origin_message.delete()
+
             else:
                 await component_ctx.send(
                     "Warning, this is not your dashboard! Use /gambling_dashboard to make your own!",

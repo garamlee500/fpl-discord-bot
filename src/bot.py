@@ -25,7 +25,7 @@ if __name__ == '__main__':
     from custom_embed import PlayerProfileEmbed, TeamProfileEmbed, ComparisonEmbed, FplTeamEmbed, GamblingDashboard
 
     bot = commands.Bot(command_prefix="your mother", help_command=None)
-    slash = SlashCommand(bot, sync_commands=True, sync_on_cog_reload=True)
+    slash = SlashCommand(bot, sync_commands=True,)# sync_on_cog_reload=True)
 
     # Open discordKey.txt and extract discord bot key
     file = open('discordKey.txt', 'r')

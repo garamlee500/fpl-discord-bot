@@ -51,17 +51,15 @@ def match_score_checker(bet_condition: str) -> Union[bool, None]:
         return None
     try:
         match = fplApi.view_match(int(parsed_bet[0]))
-        predicted_home_score = int(parsed_bet[1])
-        predicted_away_score = int(parsed_bet[2])
+        predicted_home_score = min(int(parsed_bet[1]), 10)
+        predicted_away_score = min(int(parsed_bet[2]), 10)
     except ValueError:
         return None
 
     if not match['finished']:
         return None
 
-    if match['team_h_score'] == predicted_home_score and match['team_a_score'] == predicted_away_score:
+    if min(match['team_h_score'],10) == predicted_home_score and min(match['team_a_score'],10) == predicted_away_score:
         return True
     else:
         return False
-
-
