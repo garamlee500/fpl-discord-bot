@@ -530,8 +530,6 @@ class FplApi:
                 for bet in bets:
                     is_correct = is_bet_correct(bet_condition=bet[4], bet_type=bet[5])
                     if not is_correct is None:
-                        if is_correct:
-                            fplDatabase.add_account_money(bet[0], bet[3])
                         fplDatabase.mark_bet_finished(bet[0], is_correct)
 
             except requests.exceptions.ConnectionError:
