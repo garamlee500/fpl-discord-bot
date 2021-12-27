@@ -161,3 +161,11 @@ class FplDatabase:
         cur.execute(sql_to_search, (bet_type,))
         bets=cur.fetchall()
         return bets
+    def find_all_bets_from_user(self, discord_id: int):
+        sql_to_search='''
+        SELECT * FROM bets WHERE discord_id = ? ORDER BY has_ended ASC, bet_id DESC
+        '''
+        cur = self.conn.cursor()
+        cur.execute(sql_to_search, (discord_id,))
+        bets=cur.fetchall()
+        return bets
