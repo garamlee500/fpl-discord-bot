@@ -11,7 +11,7 @@ from discord_slash.utils.manage_components import create_select_option, create_s
 
 from fpl_api import get_player_image
 from bot import fplApi, fplDatabase
-from bet_processor import odd_finder, bet_info
+from bet_processor import odd_finder
 
 
 def underscore(string):
@@ -391,34 +391,18 @@ class GamblingDashboard:
         )
 
 
-    def match_score_predictor_embed(self):
+
+    def match_choice_selectors(self):
         self.odds = odd_finder('match_score')
         if self.odds == 0:
             self.odds = 5
 
-        self.match_choice_selectors('score')
         current_embed = deepcopy(self.home_embed)
 
         current_embed.add_field(name='Match Score Predictor',
                        value="Try your hand at guessing the results of matches!"
                              f" All correct bets are currently timesed by {self.odds}.",
                        inline=False)
-        return current_embed
-
-    def match_winner_predictor_embed(self):
-        self.odds = odd_finder('match_winner')
-        if self.odds == 0:
-            self.odds = 2
-
-        self.match_choice_selectors('win')
-        current_embed = deepcopy(self.home_embed)
-        current_embed.add_field(name="Match Winner Predictor",
-                                value="Guess the winning team of matches! "
-                                      f"All corrrect bets are currently timesed by {self.odds}.",
-                                inline=False)
-        return current_embed
-
-    def match_choice_selectors(self, match_select_type):
 
         fixtures = []
         i=0
@@ -488,10 +472,11 @@ class GamblingDashboard:
                                     placeholder='Choose the match to bet on!',
                                     min_values=1,
                                     max_values=1,
-                                    custom_id='match_select'+match_select_type)
+                                    custom_id='match_select')
 
 
         self.match_select_action_row = create_actionrow(match_select)
+        self.match_select_embed = current_embed
 
         self.fixtures = fixtures
 
@@ -557,7 +542,7 @@ class GamblingDashboard:
         home_team = fplApi.view_team(match['team_h'] - 1)['name']
         away_team = fplApi.view_team(match['team_a'] - 1)['name']
 
-        current_embed = self.match_score_predictor_embed()
+        current_embed = deepcopy(self.match_select_embed)
         current_embed.add_field(
             name='Current Prediction:',
             value=f"**{home_team} {self.home_team_score} - {self.away_team_score} {away_team}\n"
@@ -571,13 +556,7 @@ class GamblingDashboard:
         self.game_selector = create_actionrow(create_select(
             [create_select_option(label="Match Score Predictor",
                                   description="Try your hand at guessing match scores!",
-                                  value="match_score"),
-             create_select_option(label="Match Winner Predictor",
-                                  description="Guess whose going to win in each match!",
-                                  value="match_winner"),
-             create_select_option(label="View bets",
-                                  description="View all your bets, past and pending.\n",
-                                  value="view_bets")],
+                                  value="match_score")],
             placeholder="Choose Gambling Game!",
             min_values=1,
             max_values=1,
@@ -600,105 +579,21 @@ class GamblingDashboard:
             if component_ctx.author == self.user:
                 match component_ctx.custom_id:
                     case 'game_selector':
-                        match component_ctx.selected_options[0]:
-                            case "match_score":
-                                await component_ctx.send(embed=self.match_score_predictor_embed(),
-                                               components=[self.game_selector, self.match_select_action_row])
-                                current_components = [self.game_selector, self.match_select_action_row]
-                                await component_ctx.origin_message.delete()
-                            case "match_winner":
-                                await component_ctx.send(embed=self.match_winner_predictor_embed(),
-                                                         components=[self.game_selector, self.match_select_action_row])
-                                await component_ctx.origin_message.delete()
-                                current_components = [self.game_selector, self.match_select_action_row]
+                        if component_ctx.selected_options[0] == "match_score":
+                            self.match_choice_selectors()
+                            await component_ctx.send(embed=self.match_select_embed,
+                                           components=[self.game_selector, self.match_select_action_row])
+                            current_components = [self.game_selector, self.match_select_action_row]
+                            await component_ctx.origin_message.delete()
 
-
-                            case "view_bets":
-                                bets = fplDatabase.find_all_bets_from_user(self.user.id)
-                                info = ''
-                                for bet in bets:
-                                    if len(info) > 900:
-                                        break
-                                    bet_detail = bet_info(bet[4], bet[5])
-                                    # If bet finished
-                                    if bool(bet[6]):
-                                        # If bet was predicted correctly
-                                        if bool(bet[7]):
-                                            info += f'Predicted {bet_detail}. {bet[2]} coins bet. {bet[3]} coins if' \
-                                                f' correct. Was correct! \n'
-                                        else:
-                                            info += f'Predicted {bet_detail}. {bet[2]} coins bet. {bet[3]} coins if' \
-                                                    f' correct. Was not correct :(\n'
-                                    else:
-                                        info += f'Predicted {bet_detail}. {bet[2]} coins bet. {bet[3]} coins if' \
-                                                f' correct. Bet still pending.\n'
-
-                                current_components = [self.game_selector, create_actionrow(create_button(
-                                    style=ButtonStyle.red,
-                                    label='Go back home!',
-                                    custom_id='home'
-                                ))]
-                                current_embed = deepcopy(self.home_embed)
-                                current_embed.add_field(
-                                    name=f"{self.user.name}#{self.user.discriminator}'s bets!",
-                                    value=info,
-                                    inline=False
-                                )
-                                await component_ctx.send(embed=current_embed,
-                                                         components=current_components)
-                                await component_ctx.origin_message.delete()
-
-
-                    case "match_selectscore":
+                    case "match_select":
                         match = self.fixtures[int(component_ctx.selected_options[0])]
                         match_score_predictor_components = [self.match_select_action_row] +\
                                                            self.generate_match_score_pickers(match)
-                        await component_ctx.send(embed=self.match_score_predictor_embed(),
+                        await component_ctx.send(embed=self.match_select_embed,
                                                  components=match_score_predictor_components)
                         current_components = match_score_predictor_components
                         await component_ctx.origin_message.delete()
-
-                    case "match_selectwin":
-                        match = self.fixtures[int(component_ctx.selected_options[0])]
-                        home_team = fplApi.view_team(match['team_h'] - 1)['name']
-                        away_team = fplApi.view_team(match['team_a'] - 1)['name']
-                        match_winner_select = create_select(
-                            options=[
-                                create_select_option(label=f"{home_team} to win!",
-                                                     value='home_win',
-                                                     emoji={'name': home_team,
-                                                            'id': get_emoji_id(underscore(home_team))}),
-                                create_select_option(label=f"{away_team} to win!",
-                                                     value='away_win',
-                                                     emoji={'name': home_team,
-                                                            'id': get_emoji_id(underscore(away_team))}),
-                                create_select_option(label=f"{home_team} and {away_team} to draw!",
-                                                     value='draw')
-                            ],
-                            placeholder=f"Predict the winner of {home_team} vs {away_team}",
-                            min_values=1,
-                            max_values=1,
-                            custom_id='match_winner_select'
-                        )
-                        buttons = [create_button(
-                            style=ButtonStyle.green,
-                            label='Submit bet!',
-                            custom_id='submit_bet'
-                        ),
-                            create_button(
-                                style=ButtonStyle.red,
-                                label='Go back home!',
-                                custom_id='home'
-                            )
-                        ]
-                        buttons = create_actionrow(*buttons)
-
-                        current_components = [self.game_selector, self.match_select_action_row,
-                                              create_actionrow(match_winner_select), buttons]
-                        await component_ctx.send(embed=self.match_winner_predictor_embed(),
-                                                 components=current_components)
-                        await component_ctx.origin_message.delete()
-
 
 
                     case 'home':
